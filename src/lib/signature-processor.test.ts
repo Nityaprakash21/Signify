@@ -3,10 +3,13 @@ import {
   buildInkMask,
   computeBBox,
   dilateMask,
+  fitIntoBounds,
   isBlankMask,
   validateImageFile,
   processPixels,
   MAX_FILE_BYTES,
+  OUTPUT_IMAGE_HEIGHT,
+  OUTPUT_IMAGE_WIDTH,
   SignatureError,
 } from "./signature-processor";
 
@@ -86,6 +89,17 @@ describe("computeBBox", () => {
     m[1 * 4 + 1] = 1;
     m[3 * 4 + 2] = 1;
     expect(computeBBox(m, 4, 4)).toEqual({ minX: 1, minY: 1, maxX: 2, maxY: 3 });
+  });
+});
+
+describe("fitIntoBounds", () => {
+  it("centers content inside the fixed export canvas without distorting aspect ratio", () => {
+    const fit = fitIntoBounds(1000, 500, OUTPUT_IMAGE_WIDTH, OUTPUT_IMAGE_HEIGHT);
+    expect(fit.width).toBeLessThanOrEqual(OUTPUT_IMAGE_WIDTH);
+    expect(fit.height).toBeLessThanOrEqual(OUTPUT_IMAGE_HEIGHT);
+    expect(fit.x).toBeGreaterThanOrEqual(0);
+    expect(fit.y).toBeGreaterThanOrEqual(0);
+    expect(fit.width / fit.height).toBeCloseTo(2, 1);
   });
 });
 
