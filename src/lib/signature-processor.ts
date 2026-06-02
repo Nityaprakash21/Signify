@@ -18,6 +18,9 @@ export interface ProcessOptions {
   padding: number; // px of padding around trimmed content
 }
 
+export const OUTPUT_IMAGE_WIDTH = 493;
+export const OUTPUT_IMAGE_HEIGHT = 274;
+
 export const DEFAULT_OPTIONS: ProcessOptions = {
   threshold: 160,
   boldness: 2,
@@ -229,6 +232,31 @@ export interface BBox {
   maxY: number;
 }
 
+export interface FitRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export function fitIntoBounds(
+  contentWidth: number,
+  contentHeight: number,
+  targetWidth: number,
+  targetHeight: number,
+): FitRect {
+  const scale = Math.min(targetWidth / contentWidth, targetHeight / contentHeight);
+  const width = Math.max(1, Math.round(contentWidth * scale));
+  const height = Math.max(1, Math.round(contentHeight * scale));
+
+  return {
+    x: Math.floor((targetWidth - width) / 2),
+    y: Math.floor((targetHeight - height) / 2),
+    width,
+    height,
+  };
+}
+
 export function computeBBox(
   mask: Uint8Array,
   w: number,
@@ -335,13 +363,22 @@ export function processSignature(
   const cropH = Math.min(h, bbox.maxY + pad + 1) - cropY;
 
   const out = document.createElement("canvas");
-  out.width = cropW;
-  out.height = cropH;
+  out.width = OUTPUT_IMAGE_WIDTH;
+  out.height = OUTPUT_IMAGE_HEIGHT;
   const octx = out.getContext("2d");
   if (!octx) {
     throw new SignatureError("canvas_unavailable", "Your browser blocked canvas access.");
   }
-  const outData = octx.createImageData(cropW, cropH);
+  octx.clearRect(0, 0, OUTPUT_IMAGE_WIDTH, OUTPUT_IMAGE_HEIGHT);
+  const fit = fitIntoBounds(cropW, cropH, OUTPUT_IMAGE_WIDTH, OUTPUT_IMAGE_HEIGHT);
+  const cropCanvas = document.createElement("canvas");
+  cropCanvas.width = cropW;
+  cropCanvas.height = cropH;
+  const cropCtx = cropCanvas.getContext("2d");
+  if (!cropCtx) {
+    throw new SignatureError("canvas_unavailable", "Your browser blocked canvas access.");
+  }
+  const outData = cropCtx.createImageData(cropW, cropH);
   const op = outData.data;
   for (let y = 0; y < cropH; y++) {
     for (let x = 0; x < cropW; x++) {
@@ -357,6 +394,8 @@ export function processSignature(
       }
     }
   }
-  octx.putImageData(outData, 0, 0);
+  cropCtx.putImageData(outData, 0, 0);
+  octx.imageSmoothingEnabled = true;
+  octx.drawImage(cropCanvas, fit.x, fit.y, fit.width, fit.height);
   return out;
 }
